@@ -1,15 +1,86 @@
+use std::iter::Filter;
+
 use serde::{de, Deserialize, Serialize};
 use serde::ser::SerializeStruct;
 
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct MapFunc { 
+pub struct Func { 
     pub op : String,
     pub value : i32
 }
 
 
-impl Serialize for MapFunc {
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct FilterFunc { 
+    pub exp : String
+}
+
+
+
+pub struct Wrapper<T,U> { 
+    pub func : Box<dyn Fn(&T) -> U >
+}
+
+pub trait Construct<T,U> { 
+    fn Get(&self) -> Wrapper<T,U>;
+}
+
+impl Construct<i32, bool> for FilterFunc {
+    fn Get(&self) -> Wrapper<i32,bool> {
+        let a : Vec<&str> = self.exp.split("==").collect();
+                let op_str = a.get(0).unwrap().to_string();
+                let op : Vec<&str> = op_str.split(" ").collect();
+                let operator = op.get(0).unwrap().to_string();
+                let value : i32 = op.get(1).unwrap().parse().unwrap();
+                let result : i32 = a.get(1).unwrap().parse().unwrap();
+                match operator.as_str() { 
+                    "%" => { 
+                        let func = Box::new(move |x :&i32| x % value == result);
+                        return Wrapper{func}
+                    },
+                    &_ => todo!()
+                }
+                
+    }
+}
+
+impl Construct<i32, i32> for Func 
+{
+    fn Get(&self) -> Wrapper<i32, i32> {
+        let val  = self.value;
+        
+                match self.op.as_str() { 
+                    "+" => { 
+                        let func  = Box::new(move |x: &i32| x  + val);
+                        return Wrapper{func};
+                    },
+                    "*" => { 
+                        let func  = Box::new(move |x: &i32| x  * val);
+                        return Wrapper{func};
+                    },
+                    "/" => { 
+                        let func  = Box::new(move |x: &i32| x  / val);
+                        return Wrapper{func};
+                    },
+                    "%" => { 
+                        let func  = Box::new(move |x: &i32| x  % val);
+                        return Wrapper{func};
+                    },
+                    
+                    &_ => todo!()
+                }
+          
+                
+            
+        }
+        
+        
+    }
+
+
+
+impl Serialize for Func {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer {
@@ -22,7 +93,7 @@ impl Serialize for MapFunc {
 
 
 
-impl<'de> Deserialize<'de> for MapFunc {
+impl<'de> Deserialize<'de> for Func {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
@@ -30,7 +101,7 @@ impl<'de> Deserialize<'de> for MapFunc {
         struct MapFuncVisitor;
 
         impl<'de> de::Visitor<'de> for MapFuncVisitor {
-            type Value = MapFunc;
+            type Value = Func;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("a struct representing a MapFunc")
@@ -66,7 +137,7 @@ impl<'de> Deserialize<'de> for MapFunc {
                 let op = op.ok_or_else(|| de::Error::missing_field("op"))?;
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
 
-                Ok(MapFunc { op, value })
+                Ok(Func { op, value })
             }
         }
 
@@ -79,15 +150,15 @@ impl<'de> Deserialize<'de> for MapFunc {
 
 #[cfg(test)]
 mod tests {
-    use super::MapFunc;
+    use super::Func;
  
 
     #[test]
     fn test_serde() { 
-        let map_func = MapFunc{op: "+".to_string() ,value : 2 };
+        let map_func = Func{op: "+".to_string() ,value : 2 };
         let str = serde_json::to_string(&map_func).unwrap();
         println!("{}", str);
-        let retrived: MapFunc = serde_json::from_str(&str).unwrap();
+        let retrived: Func = serde_json::from_str(&str).unwrap();
         println!("{:?}", retrived);
         assert_eq!(map_func, retrived)
     }

@@ -11,18 +11,18 @@ use std::sync::{Arc, Mutex};
 use axum::extract::Json;
 use axum::response::{IntoResponse, Json as JsonResponse};
 
-use common::task::{Task, FuncType};
+use common::task::{FuncType, Task, ToI32};
 
 
 
 
-async fn handle_task<T,U>(Json(task): Json<Task<T>>) -> impl IntoResponse
-where T: Send + Sync + Clone +  'static  + erased_serde::__private::serde::ser::Serialize + Debug,
+async fn handle_task<T, U>(Json(task): Json<Task<T>>) -> impl IntoResponse
+where T: Send + Sync + Clone +  'static  + erased_serde::__private::serde::ser::Serialize + Debug + ToI32,
 U: Send + Sync + 'static + erased_serde::__private::serde::ser::Serialize+ Debug,
 { 
     println!("here");
     
-    let result: ResultRDD<T, U> = Task::execute_task(task);
+    let result: ResultRDD<i32, i32> = Task::execute_task::<i32>(task);
     println!("result {:#?}", result);
     JsonResponse(result)
 }
