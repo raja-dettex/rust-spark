@@ -1,3 +1,4 @@
+
 use std::iter::Filter;
 
 use serde::{de, Deserialize, Serialize};
@@ -15,8 +16,30 @@ pub struct Func {
 pub struct FilterFunc { 
     pub exp : String
 }
+#[derive(PartialEq, Eq, Serialize, Deserialize)]
+pub enum StringMapOp { 
+    Split,
+    TrimBeg,
+    TrimEnd
+}
+#[derive(PartialEq, Eq, Serialize, Deserialize)]
+pub enum StirngFilterOp { 
+    Contains,
+    Len
+}
 
 
+#[derive(PartialEq, Eq, Serialize, Deserialize)]
+pub struct StringMapFunc { 
+    pub op : StringMapOp, 
+    pub value : Option<String>
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize)]
+pub struct StringFilterFunc { 
+    pub op : StirngFilterOp,
+    pub value : String
+}
 
 pub struct Wrapper<T,U> { 
     pub func : Box<dyn Fn(&T) -> U >
@@ -24,6 +47,35 @@ pub struct Wrapper<T,U> {
 
 pub trait Construct<T,U> { 
     fn Get(&self) -> Wrapper<T,U>;
+}
+
+impl Construct<String, String> for StringMapFunc {
+    fn Get(&self) -> Wrapper<String,String> {
+        match self.op {
+            StringMapOp::Split => { 
+                todo!()
+            },
+            StringMapOp::TrimBeg => Wrapper { func : Box::new(|x : &String| x.trim_start().to_string())},
+            StringMapOp::TrimEnd => Wrapper { func : Box::new(|x: &String| x.trim_end().to_string())},
+        }
+    }
+}
+
+
+impl Construct<String, bool> for StringFilterFunc {
+    fn Get(&self) -> Wrapper<String,bool> {
+        match self.op {
+            StirngFilterOp::Contains => { 
+                let value = self.value.clone();
+                Wrapper { func : Box::new(move |x : &String| x.contains(&value))}
+            },
+            StirngFilterOp::Len => { 
+                let value = self.value.clone();
+                Wrapper{func: Box::new(move |x: &String| x.len() == value.parse::<usize>().unwrap()) }
+                
+            },
+        }
+    }
 }
 
 impl Construct<i32, bool> for FilterFunc {

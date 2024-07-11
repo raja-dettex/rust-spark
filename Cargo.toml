@@ -1,4 +1,4 @@
-workspace = { members = [ "common", "master","worker"] }
+workspace = { members = [ "common", "master", "schedular","worker"] }
 [package]
 name = "rust-spark"
 version = "0.1.0"

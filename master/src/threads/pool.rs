@@ -1,6 +1,7 @@
-use std::{fmt::Debug, sync::{mpsc::{self, Receiver, Sender}, Arc, Mutex}, thread};
+use std::{fmt::Debug, str::FromStr, sync::{mpsc::{self, Receiver, Sender}, Arc, Mutex}, thread::{self, Thread}};
 
 use common::{rdd::{ResultRDD, RDD}, task::Task};
+use reqwest::{blocking::Client, header::{HeaderName, HeaderValue}};
 
 //pub type PoolTask = Box<dyn FnOnce() -> ResultRDD<T,U> + Send + 'static>;
 
@@ -19,6 +20,7 @@ U: Send + 'static  {
         t(task)
     }
 }
+
 
 pub struct Worker { 
     id: usize,
@@ -43,6 +45,7 @@ impl Worker {
         Self { id, thread: Some(handle) }
     }
 }
+
 
 pub struct ThreadPool<T,U>
 where T : Send + Clone + serde::ser::Serialize + Sync + 'static,
@@ -89,7 +92,7 @@ U: Send + Debug + 'static
         let result_receiver = self.result_receiver.lock().unwrap();
         let mut results = Vec::new();
         while let Ok(result) = result_receiver.try_recv() {
-            println!("result is {:#?}", result);
+            //println!("result is {:#?}", result);
             results.push(result);
         }
         results
@@ -97,6 +100,74 @@ U: Send + Debug + 'static
 }
 
 
+pub fn execute_string(task : Task<String>, pool : &ThreadPool<String, String>) { 
+    pool.execute(task, |task| -> ResultRDD<String, String> {
+        println!("executing");
+
+        // Create reqwest blocking client
+        let client = Client::new();
+
+        // Prepare request
+        let body = serde_json::to_string(&task).unwrap();
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            HeaderName::from_str("Content-Type").unwrap(),
+            HeaderValue::from_str("application/json").unwrap(),
+        );
+        println!("sending request");
+
+        // Send request synchronously
+        let res = client
+            .post("http://localhost:8000/execute/string")
+            .headers(headers)
+            .body(body)
+            .send()
+            .unwrap(); // This will block until the request completes
+        println!("request sent");
+        //println!("response is {:?}", res);
+
+        // Process response
+        let body_text = res.text().unwrap();
+        let data: ResultRDD<String, String> = serde_json::from_str(&body_text).unwrap();
+        //println!("data {:?}", data);
+        data
+    });
+}
+
+
+pub fn execute_i32(task : Task<i32>, pool : &ThreadPool<i32, i32>) { 
+    pool.execute(task, |task| -> ResultRDD<i32, i32> {
+        println!("executing");
+
+        // Create reqwest blocking client
+        let client = Client::new();
+
+        // Prepare request
+        let body = serde_json::to_string(&task).unwrap();
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            HeaderName::from_str("Content-Type").unwrap(),
+            HeaderValue::from_str("application/json").unwrap(),
+        );
+        println!("sending request");
+
+        // Send request synchronously
+        let res = client
+            .post("http://localhost:8000/execute")
+            .headers(headers)
+            .body(body)
+            .send()
+            .unwrap(); // This will block until the request completes
+        println!("request sent");
+        //println!("response is {:?}", res);
+
+        // Process response
+        let body_text = res.text().unwrap();
+        let data: ResultRDD<i32, i32> = serde_json::from_str(&body_text).unwrap();
+        //println!("data {:?}", data);
+        data
+    });
+}
 
 #[cfg(test)]
 mod tests {
